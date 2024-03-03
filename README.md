@@ -14,7 +14,7 @@ This repository shows how to deploy the ELK stack and configure OPNsense and to 
 3. `docker compose up -d`.
 4. Give Kibana about a minute to initialize
 5. Configure the ELK stack integrations as documented [here](doc/integrations.md)
-6. Configure the OPNsense as documented [here](doc/opnsnse.md).
+6. Configure the OPNsense as documented [here](doc/opnsense.md).
 7. Go to the `Dashboards` section in `Kibana` and you will find pre-built dashboards that come with the implemented ELK integrations
 
 By default, the stack exposes the following ports:
