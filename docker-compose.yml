@@ -16,6 +16,7 @@ services:
   # due to the non-default profile it belongs to. To run it, either provide the
   # '--profile=setup' CLI flag to Compose commands, or "up" the service by name
   # such as 'docker compose up setup'.
+
   setup:
     profiles:
       - setup
@@ -30,7 +31,7 @@ services:
       - ./setup/roles:/roles:ro,Z
     environment:
       ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-}
-      LOGSTASH_INTERNAL_PASSWORD: ${LOGSTASH_INTERNAL_PASSWORD:-}
+      # LOGSTASH_INTERNAL_PASSWORD: ${LOGSTASH_INTERNAL_PASSWORD:-}
       KIBANA_SYSTEM_PASSWORD: ${KIBANA_SYSTEM_PASSWORD:-}
       METRICBEAT_INTERNAL_PASSWORD: ${METRICBEAT_INTERNAL_PASSWORD:-}
       FILEBEAT_INTERNAL_PASSWORD: ${FILEBEAT_INTERNAL_PASSWORD:-}
@@ -67,28 +68,6 @@ services:
       - elk
     restart: unless-stopped
 
-  logstash:
-    build:
-      context: logstash/
-      args:
-        ELASTIC_VERSION: ${ELASTIC_VERSION}
-    volumes:
-      - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro,Z
-      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro,Z
-    ports:
-      - 5044:5044
-      - 50000:50000/tcp
-      - 50000:50000/udp
-      - 9600:9600
-    environment:
-      LS_JAVA_OPTS: -Xms256m -Xmx256m
-      LOGSTASH_INTERNAL_PASSWORD: ${LOGSTASH_INTERNAL_PASSWORD:-}
-    networks:
-      - elk
-    depends_on:
-      - elasticsearch
-    restart: unless-stopped
-
   kibana:
     build:
       context: kibana/
@@ -106,9 +85,87 @@ services:
       - elasticsearch
     restart: unless-stopped
 
+  fleet-server:
+    build:
+      context: extensions/fleet/
+      args:
+        ELASTIC_VERSION: ${ELASTIC_VERSION}
+    # Run as 'root' instead of 'elastic-agent' (uid 1000) to allow reading
+    # 'docker.sock' and the host's filesystem.
+    user: root
+    volumes:
+      - fleet-server:/usr/share/elastic-agent/state:Z
+      - type: bind
+        source: /var/lib/docker/containers
+        target: /var/lib/docker/containers
+        read_only: true
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+        read_only: true
+    environment:
+      FLEET_SERVER_ENABLE: '1'
+      FLEET_SERVER_INSECURE_HTTP: '1'
+      FLEET_SERVER_HOST: 0.0.0.0
+      FLEET_SERVER_POLICY_ID: fleet-server-policy
+      # Fleet plugin in Kibana
+      KIBANA_FLEET_SETUP: '1'
+      # Enrollment.
+      # (a) Auto-enroll using basic authentication
+      ELASTICSEARCH_USERNAME: elastic
+      ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD:-}
+      # (b) Enroll using a pre-generated service token
+      #FLEET_SERVER_SERVICE_TOKEN: <service_token>
+    ports:
+      - 8220:8220
+      - 9001:9001/udp #pfsense integration
+      - 2055:2055/udp # netflow integration
+    hostname: fleet-server
+    # Elastic Agent does not retry failed connections to Kibana upon the initial enrollment phase.
+    restart: on-failure
+    networks:
+      - elk
+    depends_on:
+      - elasticsearch
+      - kibana
+
+  filebeat:
+    build:
+      context: extensions/filebeat/
+      args:
+        ELASTIC_VERSION: ${ELASTIC_VERSION}
+    # Run as 'root' instead of 'filebeat' (uid 1000) to allow reading
+    # 'docker.sock' and the host's filesystem.
+    user: root
+    command:
+      # Log to stderr.
+      - -e
+      # Disable config file permissions checks. Allows mounting
+      # 'config/filebeat.yml' even if it's not owned by root.
+      # see: https://www.elastic.co/guide/en/beats/libbeat/current/config-file-permissions.html
+      - --strict.perms=false
+    volumes:
+      - ./extensions/filebeat/config/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro,Z
+      - type: bind
+        source: /var/lib/docker/containers
+        target: /var/lib/docker/containers
+        read_only: true
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+        read_only: true
+    environment:
+      FILEBEAT_INTERNAL_PASSWORD: ${FILEBEAT_INTERNAL_PASSWORD:-}
+      BEATS_SYSTEM_PASSWORD: ${BEATS_SYSTEM_PASSWORD:-}
+    networks:
+      - elk
+    depends_on:
+      - elasticsearch
+
 networks:
   elk:
     driver: bridge
 
 volumes:
   elasticsearch:
+  fleet-server:

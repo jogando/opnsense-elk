@@ -1,4 +1,4 @@
-# Elastic stack (ELK) on Docker
+# Elastic stack (ELK) on Docker for opnsense
 
 [![Elastic Stack version](https://img.shields.io/badge/Elastic%20Stack-8.12.2-00bfb3?style=flat&logo=elastic-stack)](https://www.elastic.co/blog/category/releases)
 [![Build Status](https://github.com/deviantony/docker-elk/workflows/CI/badge.svg?branch=main)](https://github.com/deviantony/docker-elk/actions?query=workflow%3ACI+branch%3Amain)
@@ -43,15 +43,9 @@ docker-compose up
 
 ---
 
-## Philosophy
+## Credits
 
-We aim at providing the simplest possible entry into the Elastic stack for anybody who feels like experimenting with
-this powerful combo of technologies. This project's default configuration is purposely minimal and unopinionated. It
-does not rely on any external dependency, and uses as little custom automation as necessary to get things up and
-running.
-
-Instead, we believe in good documentation so that you can use this repository as a template, tweak it, and make it _your
-own_. [sherifabdlnaby/elastdocker][elastdocker] is one example among others of project that builds upon this idea.
+![deviantony/docker-elk](https://github.com/deviantony/docker-elk)
 
 ---
 
@@ -100,12 +94,12 @@ own_. [sherifabdlnaby/elastdocker][elastdocker] is one example among others of p
 
 By default, the stack exposes the following ports:
 
-* 5044: Logstash Beats input
-* 50000: Logstash TCP input
-* 9600: Logstash monitoring API
 * 9200: Elasticsearch HTTP
 * 9300: Elasticsearch TCP transport
 * 5601: Kibana
+* 9001: pfsense integration UDP
+* 2055: netflow integration UDP
+
 
 > [!WARNING]
 > Elasticsearch's [bootstrap checks][bootstrap-checks] were purposely disabled to facilitate the setup of the Elastic
